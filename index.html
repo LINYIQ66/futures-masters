@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futures Masters - 期货交易大师策略库</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        accent: {
+                            green: '#10b981',
+                            red: '#ef4444',
+                            gold: '#f59e0b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #0a0e1a;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(56, 189, 248, 0.1);
+        }
+        
+        .glow-border {
+            position: relative;
+        }
+        .glow-border::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(56,189,248,0.5), rgba(129,140,248,0.3), transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        
+        .chart-line {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawLine 3s ease-out forwards;
+        }
+        
+        @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+        }
+        
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+        
+        .master-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .master-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px -10px rgba(56,189,248,0.3);
+        }
+        
+        .stat-number {
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .scroll-indicator {
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        .typing-cursor::after {
+            content: '|';
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(56,189,248,0.6);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass-card border-b border-slate-800/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
+                        <span class="text-white font-bold text-sm">FM</span>
+                    </div>
+                    <span class="font-bold text-lg tracking-tight">Futures Masters</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#masters" class="text-slate-400 hover:text-white transition-colors text-sm">交易大师</a>
+                    <a href="#strategies" class="text-slate-400 hover:text-white transition-colors text-sm">策略库</a>
+                    <a href="#signals" class="text-slate-400 hover:text-white transition-colors text-sm">信号系统</a>
+                    <a href="#principles" class="text-slate-400 hover:text-white transition-colors text-sm">核心原则</a>
+                </div>
+                <a href="https://github.com/LINYIQ66/futures-masters" target="_blank" class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 transition-colors text-sm font-medium">
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen flex items-center justify-center grid-bg overflow-hidden">
+        <!-- Animated Background Elements -->
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="absolute top-20 left-10 w-72 h-72 bg-primary-500/10 rounded-full blur-3xl floating"></div>
+            <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl floating" style="animation-delay: -3s;"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary-500/5 rounded-full blur-3xl"></div>
+        </div>
+        
+        <!-- Particles Container -->
+        <div id="particles" class="absolute inset-0 pointer-events-none"></div>
+        
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="mb-6 inline-flex items-center px-4 py-2 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-300 text-sm">
+                <span class="w-2 h-2 rounded-full bg-primary-400 mr-2 animate-pulse"></span>
+                系统化交易策略研究
+            </div>
+            
+            <h1 class="text-5xl sm:text-7xl lg:text-8xl font-bold mb-6 leading-tight">
+                <span class="gradient-text">期货交易大师</span>
+                <br>
+                <span class="text-white">策略库</span>
+            </h1>
+            
+            <p class="text-xl sm:text-2xl text-slate-400 mb-8 max-w-3xl mx-auto leading-relaxed">
+                研究世界顶级期货交易大师的策略体系<br class="hidden sm:block">
+                提炼可编程、可回测的交易规则
+            </p>
+            
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+                <a href="#masters" class="px-8 py-4 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 transition-all text-white font-semibold text-lg shadow-lg shadow-primary-500/25">
+                    探索大师策略
+                </a>
+                <a href="https://github.com/LINYIQ66/futures-masters" target="_blank" class="px-8 py-4 rounded-xl glass-card hover:bg-slate-800/50 transition-all text-slate-300 font-semibold text-lg">
+                    查看源码
+                </a>
+            </div>
+            
+            <!-- Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+                <div class="glass-card rounded-2xl p-6 glow-border">
+                    <div class="text-3xl sm:text-4xl font-bold text-primary-400 stat-number" data-target="8">0</div>
+                    <div class="text-slate-400 text-sm mt-1">交易大师</div>
+                </div>
+                <div class="glass-card rounded-2xl p-6 glow-border">
+                    <div class="text-3xl sm:text-4xl font-bold text-accent-green stat-number" data-target="100">0</div>
+                    <div class="text-slate-400 text-sm mt-1">年+ 历史</div>
+                </div>
+                <div class="glass-card rounded-2xl p-6 glow-border">
+                    <div class="text-3xl sm:text-4xl font-bold text-accent-gold stat-number" data-target="50">0</div>
+                    <div class="text-slate-400 text-sm mt-1">亿+ 美元盈利</div>
+                </div>
+                <div class="glass-card rounded-2xl p-6 glow-border">
+                    <div class="text-3xl sm:text-4xl font-bold text-purple-400 stat-number" data-target="6">0</div>
+                    <div class="text-slate-400 text-sm mt-1">核心原则</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scroll Indicator -->
+        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 scroll-indicator">
+            <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Masters Section -->
+    <section id="masters" class="py-24 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl sm:text-5xl font-bold mb-4">
+                    <span class="gradient-text">传奇交易大师</span>
+                </h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+                    从20世纪初到现代，这些大师用实力证明了系统化交易的力量
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Master Cards -->
+                <div class="master-card glass-card rounded-2xl p-6 glow-border group cursor-pointer" data-master="livermore">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">📈</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Jesse Livermore</h3>
+                    <p class="text-primary-400 text-sm font-medium mb-3">1877-1940</p>
+                    <p class="text-slate-400 text-sm mb-4">趋势跟踪 + 关键点突破</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent-green font-mono text-sm">$5 → $1亿</span>
+                        <span class="text-slate-500 text-xs">~$15亿(今日)</span>
+                    </div>
+                </div>
+                
+                <div class="master-card glass-card rounded-2xl p-6 glow-border group cursor-pointer" data-master="seykota">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">🌊</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Ed Seykota</h3>
+                    <p class="text-primary-400 text-sm font-medium mb-3">1946-</p>
+                    <p class="text-slate-400 text-sm mb-4">趋势跟踪 + 情绪过滤</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent-green font-mono text-sm">$5k → $1500万</span>
+                        <span class="text-slate-500 text-xs">12年</span>
+                    </div>
+                </div>
+                
+                <div class="master-card glass-card rounded-2xl p-6 glow-border group cursor-pointer" data-master="dennis">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">🐢</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Richard Dennis</h3>
+                    <p class="text-primary-400 text-sm font-medium mb-3">1949-</p>
+                    <p class="text-slate-400 text-sm mb-4">系统化趋势跟踪</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent-green font-mono text-sm">$1600 → $2亿</span>
+                        <span class="text-slate-500 text-xs">海龟交易</span>
+                    </div>
+                </div>
+                
+                <div class="master-card glass-card rounded-2xl p-6 glow-border group cursor-pointer" data-master="williams">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">⚡</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Larry Williams</h3>
+                    <p class="text-primary-400 text-sm font-medium mb-3">1942-</p>
+                    <p class="text-slate-400 text-sm mb-4">动量指标 + 季节性</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent-green font-mono text-sm">$1万 → $110万</span>
+                        <span class="text-slate-500 text-xs">1年</span>
+                    </div>
+                </div>
+                
+                <div class="master-card glass-card rounded-2xl p-6 glow-border group cursor-pointer" data-master="tudor-jones">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">🎯</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Paul Tudor Jones</h3>
+                    <p class="text-primary-400 text-sm font-medium mb-3">1954-</p>
+                    <p class="text-slate-400 text-sm mb-4">反转 + 风险管理</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent-green font-mono text-sm">$1亿(1987)</span>
+                        <span class="text-slate-500 text-xs">崩盘做空</span>
+                    </div>
+                </div>
+                
+                <div class="master-card glass-card rounded-2xl p-6 glow-border group cursor-pointer" data-master="druckenmiller">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">👑</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Stanley Druckenmiller</h3>
+                    <p class="text-primary-400 text-sm font-medium mb-3">1953-</p>
+                    <p class="text-slate-400 text-sm mb-4">宏观趋势 + 集中押注</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent-green font-mono text-sm">30%/年</span>
+                        <span class="text-slate-500 text-xs">无亏损年</span>
+                    </div>
+                </div>
+                
+                <div class="master-card glass-card rounded-2xl p-6 glow-border group cursor-pointer" data-master="lipschutz">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-teal-500/20 to-cyan-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">🧮</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Bill Lipschutz</h3>
+                    <p class="text-primary-400 text-sm font-medium mb-3">1956-</p>
+                    <p class="text-slate-400 text-sm mb-4">外汇/合约 + 概率思维</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent-green font-mono text-sm">$3亿/年</span>
+                        <span class="text-slate-500 text-xs">所罗门兄弟</span>
+                    </div>
+                </div>
+                
+                <div class="master-card glass-card rounded-2xl p-6 glow-border group cursor-pointer" data-master="kovner">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-500/20 to-amber-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">🛡️</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Bruce Kovner</h3>
+                    <p class="text-primary-400 text-sm font-medium mb-3">1945-</p>
+                    <p class="text-slate-400 text-sm mb-4">宏观 + 止损纪律</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent-green font-mono text-sm">$3k → $110亿</span>
+                        <span class="text-slate-500 text-xs">基金规模</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Strategy Detail Modal -->
+    <div id="strategy-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="relative z-10 flex items-center justify-center min-h-screen p-4">
+            <div class="glass-card rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto glow-border">
+                <div class="p-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 id="modal-title" class="text-2xl font-bold gradient-text"></h3>
+                        <button onclick="closeModal()" class="text-slate-400 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="modal-content" class="text-slate-300 leading-relaxed"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Strategies Section -->
+    <section id="strategies" class="py-24 relative grid-bg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl sm:text-5xl font-bold mb-4">
+                    <span class="gradient-text">策略体系</span>
+                </h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+                    每位大师的核心策略，已提炼为可编程、可回测的交易规则
+                </p>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- Strategy Items -->
+                <div class="glass-card rounded-2xl p-6 glow-border hover:border-primary-500/30 transition-colors">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium">Livermore</span>
+                                <h3 class="text-xl font-bold text-white">关键点突破策略</h3>
+                            </div>
+                            <p class="text-slate-400 text-sm">识别价格关键点位，突破后顺势入场，结合成交量确认趋势强度</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <div class="text-accent-green font-mono font-bold">趋势跟踪</div>
+                                <div class="text-slate-500 text-xs">核心风格</div>
+                            </div>
+                            <a href="strategies/livermore.md" class="px-4 py-2 rounded-lg bg-primary-600/20 hover:bg-primary-600/30 text-primary-400 text-sm font-medium transition-colors">
+                                查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-6 glow-border hover:border-primary-500/30 transition-colors">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-medium">Seykota</span>
+                                <h3 class="text-xl font-bold text-white">趋势+情绪过滤策略</h3>
+                            </div>
+                            <p class="text-slate-400 text-sm">多重时间框架趋势确认，结合市场情绪指标过滤假突破</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <div class="text-accent-green font-mono font-bold">情绪过滤</div>
+                                <div class="text-slate-500 text-xs">核心风格</div>
+                            </div>
+                            <a href="strategies/seykota.md" class="px-4 py-2 rounded-lg bg-primary-600/20 hover:bg-primary-600/30 text-primary-400 text-sm font-medium transition-colors">
+                                查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-6 glow-border hover:border-primary-500/30 transition-colors">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-medium">Dennis</span>
+                                <h3 class="text-xl font-bold text-white">海龟交易法则</h3>
+                            </div>
+                            <p class="text-slate-400 text-sm">唐奇安通道突破入场，ATR仓位管理，严格止损纪律</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <div class="text-accent-green font-mono font-bold">系统化</div>
+                                <div class="text-slate-500 text-xs">核心风格</div>
+                            </div>
+                            <a href="strategies/dennis.md" class="px-4 py-2 rounded-lg bg-primary-600/20 hover:bg-primary-600/30 text-primary-400 text-sm font-medium transition-colors">
+                                查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-6 glow-border hover:border-primary-500/30 transition-colors">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="px-3 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">Tudor Jones</span>
+                                <h3 class="text-xl font-bold text-white">反转+风控策略</h3>
+                            </div>
+                            <p class="text-slate-400 text-sm">极端情绪下的均值回归，严格的风险预算管理</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <div class="text-accent-green font-mono font-bold">风险管理</div>
+                                <div class="text-slate-500 text-xs">核心风格</div>
+                            </div>
+                            <a href="strategies/tudor-jones.md" class="px-4 py-2 rounded-lg bg-primary-600/20 hover:bg-primary-600/30 text-primary-400 text-sm font-medium transition-colors">
+                                查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Signals Section -->
+    <section id="signals" class="py-24 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl sm:text-5xl font-bold mb-4">
+                    <span class="gradient-text">信号系统</span>
+                </h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+                    Python实现的量化信号指标，可直接用于实盘交易
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Code Example -->
+                <div class="glass-card rounded-2xl overflow-hidden glow-border">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800/50">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        </div>
+                        <span class="text-slate-500 text-sm font-mono">key_point_breakout.py</span>
+                    </div>
+                    <div class="p-6 overflow-x-auto">
+                        <pre class="text-sm font-mono text-slate-300 leading-relaxed"><code><span class="text-purple-400">def</span> <span class="text-blue-400">detect_breakout</span>(data, lookback=<span class="text-amber-400">20</span>):
+    <span class="text-slate-500">"""Livermore 关键点突破检测"""</span>
+    high = data[<span class="text-green-400">'high'</span>].rolling(lookback).<span class="text-blue-400">max</span>()
+    low = data[<span class="text-green-400">'low'</span>].rolling(lookback).<span class="text-blue-400">min</span>()
+    
+    <span class="text-slate-500"># 突破信号</span>
+    breakout_up = data[<span class="text-green-400">'close'</span>] > high.shift(<span class="text-amber-400">1</span>)
+    breakout_down = data[<span class="text-green-400">'close'</span>] < low.shift(<span class="text-amber-400">1</span>)
+    
+    <span class="text-slate-500"># 成交量确认</span>
+    vol_confirm = data[<span class="text-green-400">'volume'</span>] > data[<span class="text-green-400">'volume'</span>].rolling(<span class="text-amber-400">20</span>).mean()
+    
+    <span class="text-purple-400">return</span> breakout_up & vol_confirm</code></pre>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl overflow-hidden glow-border">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800/50">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        </div>
+                        <span class="text-slate-500 text-sm font-mono">turtle_breakout.py</span>
+                    </div>
+                    <div class="p-6 overflow-x-auto">
+                        <pre class="text-sm font-mono text-slate-300 leading-relaxed"><code><span class="text-purple-400">class</span> <span class="text-yellow-400">TurtleSystem</span>:
+    <span class="text-slate-500">"""海龟交易系统实现"""</span>
+    
+    <span class="text-purple-400">def</span> <span class="text-blue-400">__init__</span>(self, entry_days=<span class="text-amber-400">20</span>, exit_days=<span class="text-amber-400">10</span>):
+        self.entry = entry_days
+        self.exit = exit_days
+    
+    <span class="text-purple-400">def</span> <span class="text-blue-400">position_size</span>(self, atr, capital, risk=<span class="text-amber-400">0.02</span>):
+        <span class="text-slate-500"># ATR仓位管理</span>
+        unit = capital * risk / atr
+        <span class="text-purple-400">return</span> <span class="text-blue-400">int</span>(unit)
+    
+    <span class="text-purple-400">def</span> <span class="text-blue-400">generate_signals</span>(self, data):
+        <span class="text-slate-500"># 唐奇安通道</span>
+        upper = data[<span class="text-green-400">'high'</span>].rolling(self.entry).<span class="text-blue-400">max</span>()
+        lower = data[<span class="text-green-400">'low'</span>].rolling(self.exit).<span class="text-blue-400">min</span>()
+        <span class="text-purple-400">return</span> upper, lower</code></pre>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 text-center">
+                <a href="signals/" class="inline-flex items-center px-6 py-3 rounded-xl bg-primary-600/20 hover:bg-primary-600/30 text-primary-400 font-medium transition-colors">
+                    查看全部信号代码
+                    <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Principles Section -->
+    <section id="principles" class="py-24 relative grid-bg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl sm:text-5xl font-bold mb-4">
+                    <span class="gradient-text">核心原则</span>
+                </h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+                    8位大师的共同智慧，交易成功的底层逻辑
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="glass-card rounded-2xl p-8 glow-border group hover:border-primary-500/30 transition-all">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500/20 to-blue-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">📊</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">趋势是你的朋友</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">8/8 大师都强调顺势交易。不要试图预测顶部和底部，让市场告诉你方向。</p>
+                    <div class="mt-4 flex items-center text-primary-400 text-sm">
+                        <span class="font-mono">8/8 共识</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-8 glow-border group hover:border-accent-red/30 transition-all">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">🛑</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">止损先于入场</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">先想好亏多少再决定买多少。每笔交易的风险应在入场前就已确定。</p>
+                    <div class="mt-4 flex items-center text-accent-red text-sm">
+                        <span class="font-mono">风险控制第一</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-8 glow-border group hover:border-accent-green/30 transition-all">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">🚀</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">让利润奔跑</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">盈利头寸加仓，亏损头寸绝不加。截断亏损，让盈利自然增长。</p>
+                    <div class="mt-4 flex items-center text-accent-green text-sm">
+                        <span class="font-mono">盈亏比 > 胜率</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-8 glow-border group hover:border-purple-500/30 transition-all">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">🧠</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">情绪是最大敌人</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">系统化、机械化执行。恐惧和贪婪是交易者最大的敌人，用规则约束自己。</p>
+                    <div class="mt-4 flex items-center text-purple-400 text-sm">
+                        <span class="font-mono">纪律 > 直觉</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-8 glow-border group hover:border-accent-gold/30 transition-all">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500/20 to-amber-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">⚖️</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">仓位管理决定生死</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">单笔风险不超过总资金2%。活着才有机会，爆仓一次就什么都没了。</p>
+                    <div class="mt-4 flex items-center text-accent-gold text-sm">
+                        <span class="font-mono">2% 规则</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-8 glow-border group hover:border-cyan-500/30 transition-all">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <span class="text-2xl">💰</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">大赚小亏</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">胜率不重要，盈亏比才关键。40%的胜率配合3:1的盈亏比就能稳定盈利。</p>
+                    <div class="mt-4 flex items-center text-cyan-400 text-sm">
+                        <span class="font-mono">3:1 盈亏比</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-24 relative">
+        <div class="absolute inset-0 bg-gradient-to-b from-primary-500/5 to-transparent"></div>
+        <div class="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-4xl sm:text-5xl font-bold mb-6">
+                <span class="gradient-text">开始你的交易之旅</span>
+            </h2>
+            <p class="text-slate-400 text-lg mb-8 max-w-2xl mx-auto">
+                克隆仓库，运行信号脚本，回测历史数据，构建属于你的交易系统
+            </p>
+            <div class="glass-card rounded-2xl p-6 glow-border max-w-2xl mx-auto mb-8">
+                <code class="text-sm font-mono text-slate-300">
+                    git clone https://github.com/LINYIQ66/futures-masters.git<br>
+                    cd futures-masters<br>
+                    pip install pandas numpy ta-lib<br>
+                    cd signals && python key_point_breakout.py --symbol BTC-USDT-SWAP --days 90
+                </code>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="https://github.com/LINYIQ66/futures-masters" target="_blank" class="px-8 py-4 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 transition-all text-white font-semibold text-lg shadow-lg shadow-primary-500/25">
+                    Star on GitHub
+                </a>
+                <a href="docs/lessons.md" class="px-8 py-4 rounded-xl glass-card hover:bg-slate-800/50 transition-all text-slate-300 font-semibold text-lg">
+                    阅读交易教训
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 border-t border-slate-800/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
+                        <span class="text-white font-bold text-sm">FM</span>
+                    </div>
+                    <span class="font-bold">Futures Masters</span>
+                </div>
+                <div class="text-slate-500 text-sm">
+                    MIT License — 自由使用、修改、分享
+                </div>
+                <div class="flex items-center space-x-6">
+                    <a href="https://github.com/LINYIQ66/futures-masters" target="_blank" class="text-slate-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // GSAP Animations
+        gsap.registerPlugin(ScrollTrigger);
+        
+        // Hero stats counter animation
+        const statNumbers = document.querySelectorAll('.stat-number');
+        statNumbers.forEach(stat => {
+            const target = parseInt(stat.dataset.target);
+            gsap.to(stat, {
+                innerHTML: target,
+                duration: 2,
+                ease: "power2.out",
+                snap: { innerHTML: 1 },
+                scrollTrigger: {
+                    trigger: stat,
+                    start: "top 80%",
+                }
+            });
+        });
+        
+        // Master cards animation
+        gsap.from('.master-card', {
+            y: 60,
+            opacity: 0,
+            duration: 0.8,
+            stagger: 0.1,
+            ease: "power3.out",
+            scrollTrigger: {
+                trigger: '#masters',
+                start: "top 70%",
+            }
+        });
+        
+        // Strategy items animation
+        gsap.from('#strategies .glass-card', {
+            x: -40,
+            opacity: 0,
+            duration: 0.6,
+            stagger: 0.15,
+            ease: "power2.out",
+            scrollTrigger: {
+                trigger: '#strategies',
+                start: "top 70%",
+            }
+        });
+        
+        // Principles animation
+        gsap.from('#principles .glass-card', {
+            y: 40,
+            opacity: 0,
+            duration: 0.6,
+            stagger: 0.1,
+            ease: "power2.out",
+            scrollTrigger: {
+                trigger: '#principles',
+                start: "top 70%",
+            }
+        });
+        
+        // Particles
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 5 + 's';
+                particle.style.opacity = Math.random() * 0.5 + 0.1;
+                container.appendChild(particle);
+                
+                gsap.to(particle, {
+                    y: -100,
+                    x: Math.random() * 50 - 25,
+                    duration: Math.random() * 10 + 10,
+                    repeat: -1,
+                    ease: "none",
+                });
+            }
+        }
+        createParticles();
+        
+        // Modal functionality
+        const strategyData = {
+            'livermore': {
+                title: 'Jesse Livermore - 关键点突破策略',
+                content: `
+                    <p class="mb-4">Jesse Livermore（1877-1940）是20世纪最伟大的投机家之一，他从5美元起步，最高积累到1亿美元财富（相当于今天的15亿美元）。</p>
+                    <h4 class="text-lg font-bold text-white mb-2">核心策略</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1">
+                        <li>识别价格的关键点位（前高/前低）</li>
+                        <li>突破关键点位后顺势入场</li>
+                        <li>用成交量确认突破的有效性</li>
+                        <li>严格止损，亏损不超过本金的10%</li>
+                    </ul>
+                    <h4 class="text-lg font-bold text-white mb-2">经典语录</h4>
+                    <blockquote class="border-l-4 border-primary-500 pl-4 italic text-slate-400">
+                        "市场永远不会错，只有看法会错。"
+                    </blockquote>
+                `
+            },
+            'seykota': {
+                title: 'Ed Seykota - 趋势+情绪过滤策略',
+                content: `
+                    <p class="mb-4">Ed Seykota（1946-）是趋势跟踪交易的传奇人物，他在12年内将5000美元增长到1500万美元，年化回报超过60%。</p>
+                    <h4 class="text-lg font-bold text-white mb-2">核心策略</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1">
+                        <li>多重时间框架确认趋势方向</li>
+                        <li>结合市场情绪指标过滤假突破</li>
+                        <li>金字塔式加仓，盈利头寸逐步增加</li>
+                        <li>严格的风险管理，单笔风险不超过1%</li>
+                    </ul>
+                    <h4 class="text-lg font-bold text-white mb-2">经典语录</h4>
+                    <blockquote class="border-l-4 border-primary-500 pl-4 italic text-slate-400">
+                        "每个人都能在市场中赚钱，但很少有人能留住利润。"
+                    </blockquote>
+                `
+            },
+            'dennis': {
+                title: 'Richard Dennis - 海龟交易法则',
+                content: `
+                    <p class="mb-4">Richard Dennis（1949-）是著名的"海龟交易实验"发起人，他证明了交易是可以被教授的，用1600美元起步赚到2亿美元。</p>
+                    <h4 class="text-lg font-bold text-white mb-2">核心策略</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1">
+                        <li>唐奇安通道突破作为入场信号</li>
+                        <li>ATR（平均真实波幅）仓位管理</li>
+                        <li>严格的止损纪律，2%风险规则</li>
+                        <li>系统化执行，排除情绪干扰</li>
+                    </ul>
+                    <h4 class="text-lg font-bold text-white mb-2">海龟法则精髓</h4>
+                    <blockquote class="border-l-4 border-primary-500 pl-4 italic text-slate-400">
+                        "我可以把我的规则登在报纸上，但没有人会遵守它们。关键是统一性和纪律性。"
+                    </blockquote>
+                `
+            },
+            'williams': {
+                title: 'Larry Williams - 动量指标+季节性策略',
+                content: `
+                    <p class="mb-4">Larry Williams（1942-）是期货交易冠军，他在1987年的罗宾斯世界杯期货交易锦标赛中，用1万美元在一年内赚到110万美元，收益率达11,000%。</p>
+                    <h4 class="text-lg font-bold text-white mb-2">核心策略</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1">
+                        <li>Williams %R 动量指标识别超买超卖</li>
+                        <li>结合季节性因素选择交易时机</li>
+                        <li>短线交易，快速进出</li>
+                        <li>严格的资金管理，保护本金</li>
+                    </ul>
+                    <h4 class="text-lg font-bold text-white mb-2">交易哲学</h4>
+                    <blockquote class="border-l-4 border-primary-500 pl-4 italic text-slate-400">
+                        "交易不是关于 being right，而是 about making money。"
+                    </blockquote>
+                `
+            },
+            'tudor-jones': {
+                title: 'Paul Tudor Jones - 反转+风控策略',
+                content: `
+                    <p class="mb-4">Paul Tudor Jones（1954-）是宏观交易大师，他在1987年股市崩盘中做空，单日盈利超过1亿美元，被誉为"黑色星期一的最大赢家"。</p>
+                    <h4 class="text-lg font-bold text-white mb-2">核心策略</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1">
+                        <li>识别市场极端情绪，做反向交易</li>
+                        <li>严格的风险预算管理</li>
+                        <li>技术分析与基本面结合</li>
+                        <li>灵活调整仓位，快速止损</li>
+                    </ul>
+                    <h4 class="text-lg font-bold text-white mb-2">风控原则</h4>
+                    <blockquote class="border-l-4 border-primary-500 pl-4 italic text-slate-400">
+                        "我总是假设我的头寸是错的，直到市场证明我是对的。"
+                    </blockquote>
+                `
+            },
+            'druckenmiller': {
+                title: 'Stanley Druckenmiller - 宏观趋势+集中押注',
+                content: `
+                    <p class="mb-4">Stanley Druckenmiller（1953-）是索罗斯的得力助手，他管理的基金30年平均年回报30%，且没有任何一年亏损。</p>
+                    <h4 class="text-lg font-bold text-white mb-2">核心策略</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1">
+                        <li>宏观趋势判断，大方向正确</li>
+                        <li>集中押注于高确信度机会</li>
+                        <li>灵活调整，快速认错</li>
+                        <li>流动性管理，保持现金储备</li>
+                    </ul>
+                    <h4 class="text-lg font-bold text-white mb-2">投资哲学</h4>
+                    <blockquote class="border-l-4 border-primary-500 pl-4 italic text-slate-400">
+                        "把鸡蛋放在一个篮子里，然后看好那个篮子。"
+                    </blockquote>
+                `
+            },
+            'lipschutz': {
+                title: 'Bill Lipschutz - 外汇/合约+概率思维',
+                content: `
+                    <p class="mb-4">Bill Lipschutz（1956-）是所罗门兄弟的外汇交易主管，他每年为银行赚取3亿美元利润，被誉为"外汇之王"。</p>
+                    <h4 class="text-lg font-bold text-white mb-2">核心策略</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1">
+                        <li>概率思维，关注期望值</li>
+                        <li>外汇市场的流动性优势</li>
+                        <li>技术分析与订单流结合</li>
+                        <li>严格止损，保护本金</li>
+                    </ul>
+                    <h4 class="text-lg font-bold text-white mb-2">交易智慧</h4>
+                    <blockquote class="border-l-4 border-primary-500 pl-4 italic text-slate-400">
+                        "如果一笔交易让你睡不着，那就把它平掉。"
+                    </blockquote>
+                `
+            },
+            'kovner': {
+                title: 'Bruce Kovner - 宏观+止损纪律',
+                content: `
+                    <p class="mb-4">Bruce Kovner（1945-）是Caxton Associates创始人，他从3000美元起步，将基金管理到110亿美元规模，是宏观交易领域的传奇。</p>
+                    <h4 class="text-lg font-bold text-white mb-2">核心策略</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1">
+                        <li>宏观分析，把握大趋势</li>
+                        <li>严格的止损纪律</li>
+                        <li>多元化投资，分散风险</li>
+                        <li>耐心等待最佳入场时机</li>
+                    </ul>
+                    <h4 class="text-lg font-bold text-white mb-2">风险管理</h4>
+                    <blockquote class="border-l-4 border-primary-500 pl-4 italic text-slate-400">
+                        "我知道我会犯错，所以我总是提前想好退出策略。"
+                    </blockquote>
+                `
+            }
+        };
+        
+        function openModal(master) {
+            const modal = document.getElementById('strategy-modal');
+            const title = document.getElementById('modal-title');
+            const content = document.getElementById('modal-content');
+            
+            const data = strategyData[master];
+            if (data) {
+                title.textContent = data.title;
+                content.innerHTML = data.content;
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('strategy-modal');
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        
+        // Add click handlers to master cards
+        document.querySelectorAll('.master-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const master = card.dataset.master;
+                openModal(master);
+            });
+        });
+        
+        // Smooth scroll for navigation
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+        
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>
